@@ -6,9 +6,11 @@ A tool for analyzing YouTube content using AI. This application allows users to 
 
 - Retrieve information about YouTube channels
 - List and filter recent videos (excluding Shorts)
-- Analyze video transcripts using Claude 3.7 Sonnet
+- Analyze video transcripts using Claude AI
 - Store and retrieve analysis reports
 - Answer questions about analyzed videos
+- Generate multi-channel digests
+- Vector database for semantic search
 
 ## Setup
 
@@ -54,8 +56,14 @@ This will start an interactive session where you can analyze YouTube videos and 
 ### Streamlit Web Interface
 For a more user-friendly experience, you can use the Streamlit web interface:
 
+#### Single-Page Interface
 ```bash
 streamlit run app.py
+```
+
+#### Multi-Page Interface (Recommended)
+```bash
+python run_multipage_app.py
 ```
 
 This will launch a web application in your default browser with the following features:
@@ -64,6 +72,7 @@ This will launch a web application in your default browser with the following fe
 - Easy video selection with filtering options
 - Real-time progress tracking for video analysis
 - Interactive Q&A interface for analyzed videos
+- Multi-channel digest generation
 - Comprehensive "About" page with application details
 
 ## Usage Guide
@@ -91,6 +100,12 @@ The application will guide you through:
   - `vector_db_utils.py`: Utilities for vector database management
 - `utils/`: Utility functions and configurations
 - `data/`: Temporary storage for downloaded data
+- `pages/`: Multipage Streamlit UI components
+  - `1_Analyze.py`: Channel and video analysis page
+  - `2_Q&A.py`: Question answering interface
+  - `3_Digest.py`: Multi-channel digest generation
+  - `4_About.py`: Application information
+- `Home.py`: Main entry point for multipage Streamlit app
 - `docs/`: Documentation files
   - [Installation Guide](docs/installation.md): Detailed setup instructions
   - [User Guide](docs/user_guide.md): How to use the application
@@ -120,7 +135,7 @@ If you encounter an error like `Error analyzing transcript: Error code: 401 - {'
 
 1. **Run the provided test script**:
    ```
-   python test_anthropic.py
+   python tests/test_anthropic.py
    ```
    This script will verify your Anthropic API key configuration and provide guidance on fixing any issues.
 
@@ -148,3 +163,23 @@ If you encounter an error like `Error analyzing transcript: Error code: 401 - {'
    ```
 
 If you continue to experience issues, make sure your API key is active and hasn't expired. API keys may be deactivated for security reasons if they haven't been used for a long time.
+
+### SSL/TLS Issues
+
+If you encounter SSL connection errors when trying to connect to the Anthropic API, the application includes built-in workarounds that should handle most issues automatically. If you still experience problems:
+
+1. Try using the multipage interface with the cache clearing script:
+   ```
+   python clear_cache_and_run.py
+   ```
+
+2. Check your certificate authorities are up to date.
+
+### UI Display Issues
+
+If you notice formatting issues in the UI where analysis results aren't properly displayed:
+
+1. Navigate to the Q&A tab and see if previously analyzed videos are listed
+2. If they're listed but display incorrectly, the application has built-in compatibility for different report formats
+
+For any other issues, please check the logs for specific error messages.

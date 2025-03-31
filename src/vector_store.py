@@ -11,6 +11,15 @@ import hashlib
 import threading
 from pathlib import Path
 import diskcache
+import warnings
+
+# Add error handling for the PyTorch path error
+try:
+    import torch
+    # Suppress the specific PyTorch warning about __path__._path
+    warnings.filterwarnings("ignore", message="Examining the path of torch.classes")
+except ImportError:
+    pass
 
 import chromadb
 from chromadb.utils import embedding_functions

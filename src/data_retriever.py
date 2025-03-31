@@ -183,10 +183,10 @@ class DataRetriever:
         Get channel information and recent videos.
 
         Args:
-            channel_name: The name of the YouTube channel.
+            channel_name: Name of the YouTube channel.
 
         Returns:
-            Tuple of (channel_info, videos_list).
+            Tuple of (channel_info, videos) where videos is a list of video dictionaries.
         """
         channel_id = self.get_channel_id(channel_name)
         if not channel_id:
@@ -198,3 +198,67 @@ class DataRetriever:
 
         videos = self.get_recent_videos(channel_id)
         return channel_info, videos
+
+    def get_multi_channel_videos(self, channel_names: List[str], max_videos_per_channel: int = 5) -> List[Tuple[Dict[str, Any], List[Dict[str, Any]]]]:
+        """
+        Get channel information and recent videos for multiple channels.
+
+        Args:
+            channel_names: List of YouTube channel names.
+            max_videos_per_channel: Maximum number of videos to retrieve per channel.
+
+        Returns:
+            List of tuples containing (channel_info, channel_videos) for each channel.
+        """
+        results = []
+
+        for channel_name in channel_names:
+            # Get channel info and videos
+            channel_id = self.get_channel_id(channel_name)
+            if not channel_id:
+                print(f"Could not retrieve channel ID for: {channel_name}")
+                continue
+
+            channel_info = self.get_channel_info(channel_id)
+            if not channel_info:
+                print(f"Could not retrieve channel info for: {channel_name}")
+                continue
+
+            # Get limited number of recent videos for this channel
+            videos = self.get_recent_videos(channel_id, max_results=max_videos_per_channel)
+            if videos:
+                results.append((channel_info, videos))
+            else:
+                print(f"No suitable videos found for channel: {channel_info['title']}")
+
+        return results
+
+    def get_transcript(self, video_id: str) -> Optional[str]:
+        """
+        Get transcript for a YouTube video.
+
+        Args:
+            video_id: YouTube video ID.
+
+        Returns:
+            Transcript text or None if unavailable.
+        """
+        try:
+            from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
+
+            # Try to get the transcript
+            transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+            if not transcript_list:
+                print(f"No transcript found for video {video_id}")
+                return None
+
+            # Combine all transcript entries into a single text
+            transcript_text = " ".join([entry["text"] for entry in transcript_list])
+            return transcript_text
+
+        except (TranscriptsDisabled, NoTranscriptFound) as e:
+            print(f"Transcript not available for video {video_id}: {e}")
+            return None
+        except Exception as e:
+            print(f"Error retrieving transcript for video {video_id}: {e}")
+            return None

@@ -23,30 +23,18 @@ class QAAgent:
 
         # Try each version of the API in sequence
         try:
-            # First try newest version with messages API
-            self.anthropic_client = anthropic.Anthropic(api_key=config.anthropic_api_key)
-            # Test if messages attribute exists
-            if hasattr(self.anthropic_client, 'messages'):
-                self.api_version = "messages"
-            else:
-                # It's newer version but with completions API
-                self.api_version = "completions"
-        except (AttributeError, TypeError):
-            # Fall back to older version (Client)
-            try:
-                self.anthropic_client = anthropic.Client(api_key=config.anthropic_api_key)
-                self.api_version = "client"
-            except Exception as e:
-                print(f"Error initializing Anthropic client: {e}")
-                raise
+            # We'll use the direct API method since the client is having issues
+            self.api_version = "direct"
+            print(f"Using Anthropic API version: {self.api_version}")
 
-        print(f"Using Anthropic API version: {self.api_version}")
+            # Initialize vector store
+            self.vector_store = VectorStore()
 
-        # Initialize vector store
-        self.vector_store = VectorStore()
-
-        # Set data directory
-        self.data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+            # Set data directory
+            self.data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+        except Exception as e:
+            print(f"Error initializing QA Agent: {e}")
+            raise
 
     def list_available_reports(self) -> List[Dict[str, Any]]:
         """
@@ -68,10 +56,14 @@ class QAAgent:
                 try:
                     with open(report_path, "r", encoding="utf-8") as f:
                         report = json.load(f)
+                        # Handle both old and new report formats
+                        video_title = report.get("video_title") or report.get("title") or f"Video {report['video_id']}"
+                        analysis_timestamp = report.get("analysis_timestamp") or report.get("analysis_date") or "Unknown date"
+                        
                         reports.append({
                             "video_id": report["video_id"],
-                            "video_title": report["video_title"],
-                            "analysis_timestamp": report["analysis_timestamp"],
+                            "video_title": video_title,
+                            "analysis_timestamp": analysis_timestamp,
                             "report_file": filename
                         })
                 except Exception as e:
@@ -291,36 +283,64 @@ class QAAgent:
             # Start timing for LLM call
             llm_start_time = time.time()
 
-            # Call Anthropic API using the appropriate method based on version
-            if self.api_version == "messages":
-                # Newest API with messages.create
-                response = self.anthropic_client.messages.create(
-                    model="claude-3-sonnet-20240229",
-                    max_tokens=4000,
-                    temperature=0.0,
-                    messages=[
-                        {"role": "user", "content": prompt}
-                    ]
-                )
-                answer = response.content[0].text.strip()
-            elif self.api_version == "completions":
-                # Newer API with completions
-                response = self.anthropic_client.completions.create(
-                    model="claude-2.0",
-                    prompt=f"{anthropic.HUMAN_PROMPT} {prompt} {anthropic.AI_PROMPT}",
-                    max_tokens_to_sample=4000,
-                    temperature=0,
-                )
-                answer = response.completion.strip()
+            # Use direct API calls with requests
+            import requests
+            import ssl
+            from requests.adapters import HTTPAdapter
+
+            # Create a custom TLS adapter
+            class TlsAdapter(HTTPAdapter):
+                def init_poolmanager(self, connections, maxsize, block=False, **kwargs):
+                    """Create and initialize the urllib3 PoolManager with custom SSL context."""
+                    ctx = ssl.create_default_context()
+                    # Set SSL verification mode
+                    ctx.check_hostname = True
+                    ctx.verify_mode = ssl.CERT_REQUIRED
+                    # Use more lenient options for LibreSSL
+                    ctx.options |= 0x4  # OP_LEGACY_SERVER_CONNECT
+
+                    # Use urllib3 PoolManager directly
+                    import urllib3
+                    self.poolmanager = urllib3.PoolManager(
+                        num_pools=connections,
+                        maxsize=maxsize,
+                        block=block,
+                        ssl_context=ctx
+                    )
+
+            # Create session with custom adapter
+            session = requests.Session()
+            session.mount('https://', TlsAdapter())
+
+            # Prepare headers
+            headers = {
+                "x-api-key": config.anthropic_api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+            }
+
+            # Use completions API (Claude 2)
+            data = {
+                "model": "claude-2.0",
+                "prompt": f"\n\nHuman: {prompt}\n\nAssistant:",
+                "max_tokens_to_sample": 4000,
+                "temperature": 0.0
+            }
+
+            # Make the request
+            response = session.post(
+                "https://api.anthropic.com/v1/complete",
+                headers=headers,
+                json=data,
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                answer = result.get("completion", "")
             else:
-                # Old API (Client class with completion)
-                response = self.anthropic_client.completion(
-                    prompt=f"{anthropic.HUMAN_PROMPT} {prompt} {anthropic.AI_PROMPT}",
-                    model="claude-2.0",
-                    max_tokens_to_sample=4000,
-                    temperature=0.0,
-                )
-                answer = response.completion.strip()
+                print(f"API call failed with status {response.status_code}: {response.text}")
+                return f"Sorry, I encountered an error while processing your question: API error {response.status_code}"
 
             # Print time taken for LLM call
             llm_time = time.time() - llm_start_time

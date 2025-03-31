@@ -11,6 +11,7 @@ from datetime import datetime
 import time
 import base64
 import json
+import ssl
 
 from src.orchestrator import WorkflowOrchestrator
 from src.vector_store import VectorStore
@@ -208,6 +209,12 @@ if 'showing_video_details' not in st.session_state:
     st.session_state.showing_video_details = None
 if 'show_pre_analysis_details' not in st.session_state:
     st.session_state.show_pre_analysis_details = None
+if 'digest' not in st.session_state:
+    st.session_state.digest = None
+if 'digest_channels' not in st.session_state:
+    st.session_state.digest_channels = []
+if 'digest_processing' not in st.session_state:
+    st.session_state.digest_processing = False
 
 def check_api_keys():
     """Check if required API keys are set."""
@@ -1245,194 +1252,231 @@ def display_about_page():
     </div>
     """, unsafe_allow_html=True)
 
-def render_home_page():
-    """Render the home page."""
-    st.markdown('<h1 class="main-title">YouTube Analyzer</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle">Analyze YouTube content with AI and ask questions about videos</p>', unsafe_allow_html=True)
+def display_digest_page():
+    """Display the multi-channel digest page."""
+    st.markdown('<div class="main-title">Multi-Channel Digest</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Analyze multiple channels to generate AI news digests</div>', unsafe_allow_html=True)
 
-    # Display main sections
-    col1, col2, col3 = st.columns(3)
+    # Check API keys
+    if not check_api_keys():
+        return
 
-    with col1:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.subheader("📊 Channel Analysis")
-        st.write("Search for YouTube channels and analyze their content")
-        if st.button("Channel Analysis", key="home_channel"):
-            st.session_state.page = 'channel'
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+    # Create tabs for different functions
+    setup_tab, results_tab, troubleshoot_tab = st.tabs(["Setup Digest", "View Results", "Troubleshooting"])
 
-    with col2:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.subheader("❓ Ask Questions")
-        st.write("Query analyzed videos for specific information")
-        if st.button("Ask Questions", key="home_questions"):
-            st.session_state.page = 'questions'
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+    with setup_tab:
+        st.markdown('<div class="section-header">Configure Your Digest</div>', unsafe_allow_html=True)
 
-    with col3:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.subheader("🔍 Vector Database")
-        st.write("Manage the vector database for efficient retrieval")
-        if st.button("Vector Database", key="home_vectordb"):
-            st.session_state.page = 'vectordb'
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+        # Input for channels
+        st.subheader("Step 1: Enter YouTube Channels")
 
-def render_vector_db_page():
-    """Render the vector database management page."""
-    st.markdown('<h1 class="main-title">Vector Database Management</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle">Manage and optimize your vector database for more efficient question answering</p>', unsafe_allow_html=True)
-
-    # Initialize vector store
-    vector_store = VectorStore()
-
-    # Get vector database statistics
-    try:
-        # Count reports in collection
-        with vector_store.lock:
-            report_count = vector_store.reports_collection.count()
-            transcript_count = vector_store.transcripts_collection.count()
-
-        # Display statistics
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.markdown('<div class="card">', unsafe_allow_html=True)
-            st.subheader("Vector Database Statistics")
-            st.metric("Reports Indexed", report_count)
-            st.metric("Transcripts Indexed", transcript_count)
-            st.metric("Total Chunks", report_count + transcript_count)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        with col2:
-            st.markdown('<div class="card">', unsafe_allow_html=True)
-            st.subheader("Database Management")
-
-            st.markdown("#### Reindex All Data")
-            st.write("Rebuild the vector database with all existing reports and transcripts. "
-                     "This is useful after adding new data or if you experience issues with retrieval quality.")
-
-            reindex_button = st.button("Reindex All Data")
-            if reindex_button:
-                with st.spinner("Reindexing all data... This may take a while."):
-                    vector_store.reindex_all_data()
-                st.success("All data has been successfully reindexed!")
-
-            st.markdown("#### Clear Cache")
-            st.write("Clear the embedding cache to free up disk space.")
-
-            clear_cache_button = st.button("Clear Embedding Cache")
-            if clear_cache_button:
-                with st.spinner("Clearing cache..."):
-                    vector_store.clear_cache()
-                st.success("Cache cleared successfully!")
-
-            st.markdown("#### Fix Incomplete Reports")
-            st.write("Find and reprocess reports that have 'Unable to parse' fields. "
-                     "This helps fix reports that were not properly generated.")
-
-            fix_reports_col1, fix_reports_col2 = st.columns(2)
-
-            with fix_reports_col1:
-                fix_all_button = st.button("Fix All Incomplete Reports")
-                if fix_all_button:
-                    with st.spinner("Finding and fixing incomplete reports... This may take a while."):
-                        from src.vector_db_utils import reprocess_incomplete_reports
-                        fixed_reports = reprocess_incomplete_reports()
-                        if fixed_reports:
-                            st.success(f"Successfully fixed {len(fixed_reports)} incomplete reports!")
-                        else:
-                            st.info("No incomplete reports found or all fix attempts failed.")
-
-            with fix_reports_col2:
-                specific_video_id = st.text_input("Fix specific video ID:", placeholder="e.g., tNZnLkRBYA8")
-                fix_specific_button = st.button("Fix This Report")
-
-                if fix_specific_button and specific_video_id:
-                    with st.spinner(f"Fixing report for video {specific_video_id}..."):
-                        from src.vector_db_utils import reprocess_specific_video
-                        success = reprocess_specific_video(specific_video_id)
-                        if success:
-                            st.success(f"Successfully fixed report for video {specific_video_id}!")
-                        else:
-                            st.error(f"Failed to fix report for video {specific_video_id}.")
-
-            st.markdown("</div>", unsafe_allow_html=True)
-
-    except Exception as e:
-        st.error(f"Error retrieving vector database statistics: {e}")
-
-    # Add testing section
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.subheader("Test Retrieval")
-    st.write("Test the vector database retrieval by entering a query and seeing which chunks are retrieved.")
-
-    test_query = st.text_input("Enter a test query:", placeholder="e.g., What was said about machine learning?")
-    max_results = st.slider("Number of results to retrieve:", min_value=1, max_value=20, value=5)
-
-    if st.button("Run Test Query") and test_query:
-        with st.spinner("Retrieving results..."):
-            results = vector_store.retrieve_relevant_chunks(
-                query=test_query,
-                n_results=max_results,
-                include_reports=True,
-                include_transcripts=True
+        # Create a form for channel inputs
+        with st.form("channel_form"):
+            channels_input = st.text_area(
+                "Enter channel names (one per line):",
+                placeholder="E.g.:\nTheAIGRID\nMatt Wolfe\nAll about AI",
+                height=100
             )
 
-        if results:
-            st.success(f"Found {len(results)} relevant chunks")
+            # Digest configuration options
+            st.subheader("Step 2: Configure Digest")
+            col1, col2 = st.columns(2)
 
-            for i, result in enumerate(results, 1):
-                st.markdown(f"##### Result {i}")
-                st.markdown(f"**Source:** {result['source']}")
-                st.markdown(f"**Video ID:** {result['metadata']['video_id']}")
-                st.markdown(f"**Video Title:** {result['metadata']['video_title']}")
-                st.markdown(f"**Chunk Index:** {result['metadata']['chunk_index']} of {result['metadata']['total_chunks']}")
-                st.markdown(f"**Distance Score:** {result['distance']:.4f}")
-                st.text_area("Content:", value=result['chunk'], height=150, key=f"result_{i}")
-                st.markdown("---")
-    else:
-            st.warning("No results found for your query.")
+            with col1:
+                digest_type = st.radio("Digest Type:", ["weekly", "monthly"])
 
-    st.markdown('</div>', unsafe_allow_html=True)
+            with col2:
+                videos_per_channel = st.slider("Videos per channel:", 1, 10, 3)
 
-def main():
-    """Main function for the Streamlit app."""
-    # Set up the sidebar
-    with st.sidebar:
-        st.image("https://img.icons8.com/color/96/000000/youtube-play.png", width=100)
-        st.title("YouTube Analyzer")
+            # Advanced options
+            with st.expander("Advanced Options"):
+                use_ssl_workaround = st.checkbox("Enable SSL/TLS workaround", value=True,
+                                         help="Use this if you're experiencing SSL connection issues")
+                retry_count = st.slider("Maximum retries:", 1, 5, 3,
+                                    help="Number of times to retry API calls if they fail")
 
-        st.markdown("### Navigation")
-        if st.button("🏠 Home"):
-            st.session_state.page = 'home'
-            st.rerun()
-        if st.button("📊 Channel Analysis"):
-            st.session_state.page = 'channel'
-            st.rerun()
-        if st.button("❓ Ask Questions"):
-            st.session_state.page = 'questions'
-            st.rerun()
-        if st.button("🔍 Vector Database"):
-            st.session_state.page = 'vectordb'
-            st.rerun()
-        if st.button("ℹ️ About"):
-            st.session_state.page = 'about'
-            st.rerun()
+            # Submit button
+            submit_button = st.form_submit_button("Generate Digest")
 
-    # Render the appropriate page
-    if st.session_state.page == 'home':
-        render_home_page()
-    elif st.session_state.page == 'channel':
-        display_analyze_page()
-    elif st.session_state.page == 'questions':
-        display_qa_page()
-    elif st.session_state.page == 'vectordb':
-        render_vector_db_page()
-    elif st.session_state.page == 'about':
-        display_about_page()
+            if submit_button:
+                # Process the input channels
+                channel_names = [name.strip() for name in channels_input.split("\n") if name.strip()]
 
-if __name__ == "__main__":
-    main()
+                if not channel_names:
+                    st.error("Please enter at least one channel name.")
+                else:
+                    # Store the channel names and options in session state
+                    st.session_state.digest_channels = channel_names
+                    st.session_state.digest_processing = True
+                    st.session_state.use_ssl_workaround = use_ssl_workaround
+                    st.session_state.retry_count = retry_count
+                    st.session_state.digest = None  # Reset any existing digest
+                    st.rerun()
+
+        # Display some suggested channels
+        with st.expander("Suggested AI/Tech YouTube Channels"):
+            st.markdown("""
+            - **TheAIGRID** - AI news and tutorials
+            - **Matt Wolfe** - AI tools and applications
+            - **All About AI** - AI explanations and reviews
+            - **Yannic Kilcher** - ML research papers explained
+            - **Two Minute Papers** - AI research simplified
+            - **AI Explained** - Detailed AI concepts
+            - **DeepLearningAI** - Andrew Ng's channel
+            - **Computerphile** - Computer science topics including AI
+            - **sentdex** - Python and AI tutorials
+            """)
+
+    with results_tab:
+        # Check if we need to process a digest
+        if st.session_state.digest_processing and st.session_state.digest_channels:
+            st.markdown('<div class="section-header">Processing Digest</div>', unsafe_allow_html=True)
+
+            # Get the channels to process
+            channel_names = st.session_state.digest_channels
+
+            # Show progress for channel processing
+            st.write(f"Processing {len(channel_names)} channels: {', '.join(channel_names)}")
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            error_text = st.empty()
+
+            try:
+                # Create data retriever
+                data_retriever = st.session_state.orchestrator.data_retriever
+
+                # Get videos from multiple channels
+                status_text.text("Retrieving channel information and videos...")
+                channel_videos = data_retriever.get_multi_channel_videos(
+                    channel_names,
+                    max_videos_per_channel=videos_per_channel
+                )
+
+                # Update progress
+                progress_bar.progress(30)
+                status_text.text(f"Retrieved information for {len(channel_videos)} channels.")
+
+                if not channel_videos:
+                    st.error("Could not retrieve information for any of the specified channels.")
+                    st.session_state.digest_processing = False
+                    return
+
+                # Get the report generator
+                report_generator = st.session_state.orchestrator.report_generator
+
+                # If the ssl workaround is enabled, set it
+                if hasattr(st.session_state, 'use_ssl_workaround') and st.session_state.use_ssl_workaround:
+                    status_text.text("Enabling SSL/TLS workaround...")
+                    import ssl
+                    import requests
+                    from requests.adapters import HTTPAdapter
+                    from requests.packages.urllib3.poolmanager import PoolManager
+
+                    # Create a custom SSL adapter
+                    class TlsAdapter(HTTPAdapter):
+                        def init_poolmanager(self, connections, maxsize, block=False):
+                            ctx = ssl.create_default_context()
+                            # Add OP_LEGACY_SERVER_CONNECT flag (workaround for SSL issues)
+                            ctx.options |= 0x4
+                            self.poolmanager = PoolManager(
+                                num_pools=connections,
+                                maxsize=maxsize,
+                                block=block,
+                                ssl_version=ssl.PROTOCOL_TLS,
+                                ssl_context=ctx
+                            )
+
+                    # Try to patch the anthropic client's session if possible
+                    if hasattr(report_generator.anthropic_client, "_client"):
+                        session = getattr(report_generator.anthropic_client._client, "_session", None)
+                        if session:
+                            session.mount('https://', TlsAdapter())
+                            status_text.text("SSL/TLS workaround enabled successfully.")
+
+                # Generate the digest
+                status_text.text("Generating digest from retrieved videos... (this may take a few minutes)")
+                progress_bar.progress(50)
+
+                try:
+                    # Extract all videos into a flat list
+                    all_videos = []
+                    for channel_info, videos in channel_videos:
+                        # Add channel info to each video
+                        for video in videos:
+                            video["channel"] = {
+                                "id": channel_info["id"],
+                                "name": channel_info["title"]
+                            }
+                            all_videos.append(video)
+
+                    status_text.text(f"Processing {len(all_videos)} videos from {len(channel_videos)} channels...")
+                    progress_bar.progress(50)
+
+                    # Set retry count if available
+                    retry_count = st.session_state.get('retry_count', 3)
+
+                    # Show cache info to the user
+                    status_text.text("Checking for cached video analyses...")
+
+                    # Try with multiple retries for SSL issues
+                    for attempt in range(retry_count):
+                        try:
+                            # Show a more informative status message
+                            if attempt > 0:
+                                status_text.text(f"Generating digest from retrieved videos... (Attempt {attempt+1}/{retry_count})")
+                            else:
+                                status_text.text("Generating digest from retrieved videos... (this may take a few minutes)")
+
+                            digest = report_generator.generate_digest(all_videos, title=f"{digest_type.capitalize()} AI Video Digest")
+                            if digest:
+                                break
+                        except ssl.SSLError as ssl_err:
+                            if attempt < retry_count - 1:
+                                error_message = f"SSL Error (attempt {attempt+1}/{retry_count}): {str(ssl_err)}"
+                                error_text.warning(error_message)
+                                status_text.text(f"Retrying in 3 seconds... (attempt {attempt+1}/{retry_count})")
+                                time.sleep(3)
+                            else:
+                                raise  # Re-raise on last attempt
+                        except Exception as e:
+                            if attempt < retry_count - 1:
+                                error_message = f"API Error (attempt {attempt+1}/{retry_count}): {str(e)}"
+                                error_text.warning(error_message)
+                                status_text.text(f"Retrying in 3 seconds... (attempt {attempt+1}/{retry_count})")
+                                time.sleep(3)
+                            else:
+                                raise  # Re-raise on last attempt
+
+                    # Update progress
+                    progress_bar.progress(100)
+                    status_text.text("Digest generation complete!")
+
+                    if digest:
+                        st.session_state.digest = digest
+                    else:
+                        st.error("Failed to generate digest. Please check the logs for more information.")
+
+                except Exception as api_error:
+                    error_message = str(api_error)
+                    if "SSL" in error_message or "ssl" in error_message:
+                        st.error(f"SSL/TLS connection error: {error_message}")
+                        st.error("This is usually caused by network security settings or outdated certificates.")
+                        st.info("Please try the following:")
+                        st.info("1. Check the 'Enable SSL/TLS workaround' option in Advanced Options")
+                        st.info("2. Run the test_anthropic.py script for detailed diagnostics")
+                        st.info("3. Try a different network connection if available")
+                    else:
+                        st.error(f"Error calling Anthropic API: {error_message}")
+
+                # Reset processing flag
+                st.session_state.digest_processing = False
+
+            except Exception as e:
+                error_message = str(e)
+                if "SSL" in error_message or "ssl" in error_message:
+                    st.error(f"SSL/TLS connection error: {error_message}")
+                    st.error("This is usually caused by network security settings or outdated certificates.")
+                    st.info("Please visit the Troubleshooting tab for steps to resolve this issue.")
+                else:
+                    st.error(f"An error occurred while generating the digest: {error_message}")
+                st.session_state.digest_processing = False

@@ -19,7 +19,7 @@ class WorkflowOrchestrator:
     def __init__(self):
         """Initialize the orchestrator with all required agents."""
         self.data_retriever = DataRetriever()
-        self.report_generator = ReportGenerator()
+        self.report_generator = ReportGenerator(data_retriever=self.data_retriever)
         self.qa_agent = QAAgent()
         self.data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
         os.makedirs(self.data_dir, exist_ok=True)

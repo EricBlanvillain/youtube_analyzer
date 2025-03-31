@@ -163,20 +163,27 @@ Transcript:
 
 Analyze the content and extract the following information in a SPECIFIC JSON format:
 {{
-  "main_topics": [list of 3-5 main topics covered],
-  "key_points": [list of 5-7 most important points or insights],
-  "technical_details": [list of technical details, methods, or concepts mentioned],
-  "technologies_mentioned": [list of technologies, tools or models mentioned],
-  "overall_summary": "A concise 2-3 paragraph summary of the video content",
-  "important_facts": [list of important facts or statements made in the video],
-  "examples_and_stories": [list of examples, case studies, or stories mentioned],
-  "important_segments": [list of key moments or segments that are particularly noteworthy],
-  "tone_and_style": "Description of the speaker's presentation style",
-  "target_audience": [types of audiences who would find this content valuable],
-  "content_quality": "Assessment of the depth and quality of the content"
+  "main_topics": [list of 3-5 main topics covered, be specific],
+  "key_points": [list of 5-7 most important points or insights, be detailed],
+  "technical_details": [list of specific technical details, methods, or concepts mentioned],
+  "technologies_mentioned": [list of specific technologies, tools, frameworks, or models mentioned],
+  "overall_summary": "A concise 2-3 paragraph summary of the video content that captures the main message and value",
+  "important_facts": [list of at least 5 specific facts, statistics, or statements made in the video],
+  "examples_and_stories": [list of specific examples, demonstrations, case studies, or stories used to illustrate points],
+  "important_segments": [list of key moments or segments with their main points],
+  "tone_and_style": "Detailed description of the speaker's presentation style and approach",
+  "target_audience": [specific types of audiences who would find this content valuable],
+  "content_quality": "Detailed assessment of the depth, accuracy, and practical value of the content"
 }}
 
-IMPORTANT: You MUST return ONLY the JSON object, nothing else. No preamble or explanation. Start with '{{' and end with '}}'.
+IMPORTANT GUIDELINES:
+1. Be specific and detailed in all fields - avoid generic descriptions
+2. Include actual examples and quotes from the video where relevant
+3. For important_facts, include specific data points, statistics, or direct quotes
+4. For examples_and_stories, describe actual examples used in the video
+5. For important_segments, identify specific parts of the video that are particularly valuable
+6. Ensure all lists have at least 3-5 detailed items
+7. Return ONLY the JSON object, nothing else. Start with '{{' and end with '}}'
 """
 
         # Call the Anthropic API
@@ -256,25 +263,29 @@ IMPORTANT: You MUST return ONLY the JSON object, nothing else. No preamble or ex
                 "analysis_date": datetime.now().isoformat(),
                 "analysis_timestamp": datetime.now().isoformat(),  # Add alias for consistency
                 "analysis": {
-                    "main_topics": analysis["main_topics"],
-                    "key_points": analysis["key_points"],
-                    "technical_details": analysis["technologies_mentioned"],
-                    "technologies_mentioned": analysis["technologies_mentioned"],
-                    "overall_summary": analysis["summary"],
-                    "summary": analysis["summary"],
-                    "target_audience": analysis["relevant_for"],
-                    "relevant_for": analysis["relevant_for"],
-                    "important_facts": [],
-                    "examples_and_stories": [],
-                    "important_segments": [],
-                    "tone_and_style": "Informative"
+                    "main_topics": analysis.get("main_topics", []),
+                    "key_points": analysis.get("key_points", []),
+                    "technical_details": analysis.get("technologies_mentioned", []),
+                    "technologies_mentioned": analysis.get("technologies_mentioned", []),
+                    "overall_summary": analysis.get("summary", ""),
+                    "summary": analysis.get("summary", ""),
+                    "target_audience": analysis.get("relevant_for", []),
+                    "relevant_for": analysis.get("relevant_for", []),
+                    "important_facts": analysis.get("important_facts", []),
+                    "examples_and_stories": analysis.get("examples_and_stories", []),
+                    "examples_and_segments": analysis.get("examples_and_stories", []),  # Alias for consistency
+                    "important_segments": analysis.get("important_segments", []),
+                    "tone_and_style": analysis.get("tone_and_style", ""),
+                    "content_quality": analysis.get("content_quality", "")
                 },
                 # Also keep top-level fields for backward compatibility
-                "main_topics": analysis["main_topics"],
-                "key_points": analysis["key_points"],
-                "technologies_mentioned": analysis["technologies_mentioned"],
-                "summary": analysis["summary"],
-                "relevant_for": analysis["relevant_for"]
+                "main_topics": analysis.get("main_topics", []),
+                "key_points": analysis.get("key_points", []),
+                "technologies_mentioned": analysis.get("technologies_mentioned", []),
+                "summary": analysis.get("summary", ""),
+                "relevant_for": analysis.get("relevant_for", []),
+                "important_facts": analysis.get("important_facts", []),
+                "examples_and_segments": analysis.get("examples_and_stories", [])
             }
 
             # Save the report to a file

@@ -642,9 +642,16 @@ def display_analyze_page():
 
                     with tab4:
                         # Important Facts tab
-                        facts = video_report.get('important_facts')
-                        if not facts and 'analysis' in video_report:
-                            facts = video_report['analysis'].get('important_facts')
+                        # First try to get from analysis dict, then fallback to top-level
+                        facts = None
+                        if 'analysis' in video_report:
+                            facts = (video_report['analysis'].get('important_facts') or
+                                   video_report['analysis'].get('key_facts'))
+
+                        # If not found in analysis dict, try top-level fields
+                        if not facts:
+                            facts = (video_report.get('important_facts') or
+                                   video_report.get('key_facts'))
 
                         if facts:
                             # Check if it's a list or string

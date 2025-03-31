@@ -674,9 +674,18 @@ def display_analyze_page():
 
                     with tab6:
                         # Examples & Segments tab
-                        examples = video_report.get('examples_and_segments') or video_report.get('examples_and_stories')
-                        if not examples and 'analysis' in video_report:
-                            examples = video_report['analysis'].get('examples_and_segments') or video_report['analysis'].get('examples_and_stories')
+                        # First try to get from analysis dict, then fallback to top-level
+                        examples = None
+                        if 'analysis' in video_report:
+                            examples = (video_report['analysis'].get('examples_and_segments') or
+                                      video_report['analysis'].get('examples_and_stories') or
+                                      video_report['analysis'].get('important_segments'))
+
+                        # If not found in analysis dict, try top-level fields
+                        if not examples:
+                            examples = (video_report.get('examples_and_segments') or
+                                      video_report.get('examples_and_stories') or
+                                      video_report.get('important_segments'))
 
                         if examples:
                             # Check if it's a list or string

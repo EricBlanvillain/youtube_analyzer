@@ -156,7 +156,7 @@ class ReportGenerator:
         print(f"Calling Anthropic API ({self.api_version}) for video: {video_id}")
 
         # Create the analysis prompt with an improved structure
-        prompt = f"""Please analyze this YouTube video transcript and provide insights in JSON format.
+        prompt = f"""You are a detailed video content analyzer. Analyze this YouTube video transcript and provide a comprehensive analysis in JSON format.
 
 Video Title: {video['title']}
 Video ID: {video_id}
@@ -164,30 +164,65 @@ Video ID: {video_id}
 Transcript:
 {transcript[:50000]}  # Truncate to avoid token limits
 
-Analyze the content and extract the following information in a SPECIFIC JSON format:
+Analyze the content and provide a detailed response in this EXACT JSON format:
 {{
-  "main_topics": [list of 3-5 main topics covered, be specific],
-  "key_points": [list of 5-7 most important points or insights, be detailed],
-  "technical_details": [list of specific technical details, methods, or concepts mentioned],
-  "technologies_mentioned": [list of specific technologies, tools, frameworks, or models mentioned],
-  "overall_summary": "A concise 2-3 paragraph summary of the video content that captures the main message and value",
-  "important_facts": [list of at least 5 specific facts, statistics, or statements made in the video],
-  "examples_and_stories": [list of specific examples, demonstrations, case studies, or stories used to illustrate points],
-  "important_segments": [list of key moments or segments with their main points],
-  "tone_and_style": "Detailed description of the speaker's presentation style and approach",
-  "target_audience": [specific types of audiences who would find this content valuable],
-  "content_quality": "Detailed assessment of the depth, accuracy, and practical value of the content"
+    "main_topics": [
+        "Topic 1 with specific detail",
+        "Topic 2 with specific detail",
+        "Topic 3 with specific detail"
+    ],
+    "key_points": [
+        "Detailed point 1 with specific information",
+        "Detailed point 2 with specific information",
+        "Detailed point 3 with specific information",
+        "Detailed point 4 with specific information",
+        "Detailed point 5 with specific information"
+    ],
+    "technical_details": [
+        "Specific technical detail 1",
+        "Specific technical detail 2",
+        "Specific technical detail 3"
+    ],
+    "technologies_mentioned": [
+        "Specific technology 1",
+        "Specific technology 2",
+        "Specific technology 3"
+    ],
+    "overall_summary": "A detailed 2-3 paragraph summary that captures the main message, key insights, and value of the content. Be specific and include actual examples from the video.",
+    "important_facts": [
+        "Specific fact 1 with actual data/quote",
+        "Specific fact 2 with actual data/quote",
+        "Specific fact 3 with actual data/quote",
+        "Specific fact 4 with actual data/quote",
+        "Specific fact 5 with actual data/quote"
+    ],
+    "examples_and_stories": [
+        "Detailed example 1 from the video",
+        "Detailed example 2 from the video",
+        "Detailed example 3 from the video"
+    ],
+    "important_segments": [
+        "Key segment 1 with main points",
+        "Key segment 2 with main points",
+        "Key segment 3 with main points"
+    ],
+    "tone_and_style": "Detailed description of the speaker's presentation style and approach",
+    "target_audience": [
+        "Specific audience type 1",
+        "Specific audience type 2",
+        "Specific audience type 3"
+    ],
+    "content_quality": "Detailed assessment of the content's depth, accuracy, and practical value"
 }}
 
-IMPORTANT GUIDELINES:
-1. Be specific and detailed in all fields - avoid generic descriptions
-2. Include actual examples and quotes from the video where relevant
-3. For important_facts, include specific data points, statistics, or direct quotes
-4. For examples_and_stories, describe actual examples used in the video
-5. For important_segments, identify specific parts of the video that are particularly valuable
-6. Ensure all lists have at least 3-5 detailed items
-7. Return ONLY the JSON object, nothing else. Start with '{{' and end with '}}'
-"""
+CRITICAL REQUIREMENTS:
+1. Return ONLY valid JSON - no other text, no markdown, no explanations
+2. Every field MUST contain actual content from the video - no placeholders
+3. Lists must contain at least 3 detailed items
+4. Examples must be specific moments or demonstrations from the video
+5. Facts must include actual quotes, numbers, or specific information
+6. Summary must be detailed and reference actual content
+7. Start response with '{{' and end with '}}'"""
 
         # Call the Anthropic API
         response = self._call_claude_api(prompt)
@@ -195,100 +230,36 @@ IMPORTANT GUIDELINES:
             print(f"No response received for video: {video['title']}")
             return None
 
-        # Log first part of response for debugging
-        print(f"Response received: {len(response)} characters")
-        print(f"First 100 chars of response: {response[:100]}")
-
-        # Extract JSON from the response
         try:
-            # Try different JSON extraction patterns
-
-            # 1. First try to find JSON blocks with code formatting
-            json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response, re.DOTALL)
-
+            # Extract JSON from the response
+            json_match = re.search(r'(\{[\s\S]*\})', response)
             if json_match:
-                print(f"Found JSON string in code block from index {json_match.start(1)} to {json_match.end(1)}")
                 json_str = json_match.group(1)
-                try:
-                    analysis = json.loads(json_str)
-                    print("Successfully parsed JSON from code block")
-                except json.JSONDecodeError as e:
-                    print(f"JSON error in code block: {e}, trying to clean JSON string")
-                    # Try to clean and fix common JSON issues
-                    clean_json = json_str.replace('\n', ' ').replace('\r', '')
-                    analysis = json.loads(clean_json)
-                    print("Successfully parsed cleaned JSON from code block")
+                analysis = json.loads(json_str)
             else:
-                # 2. Try to find any JSON-like structure with braces
-                json_match = re.search(r'(\{[^{]*"main_topics"[^}]*\})', response, re.DOTALL)
-                if json_match:
-                    print(f"Found JSON-like structure from index {json_match.start(1)} to {json_match.end(1)}")
-                    json_str = json_match.group(1)
-                    try:
-                        analysis = json.loads(json_str)
-                        print("Successfully parsed JSON from extracted structure")
-                    except json.JSONDecodeError:
-                        print("JSON error in extracted structure, falling back to full response parsing")
-                        analysis = json.loads(response)
-                        print("Successfully parsed JSON from full response")
-                else:
-                    # 3. Try direct parsing of the entire response
-                    try:
-                        analysis = json.loads(response)
-                        print("Successfully parsed JSON from full response")
-                    except json.JSONDecodeError as full_err:
-                        print(f"Failed to parse any JSON from response: {full_err}")
-                        # 4. Last resort: try to extract any JSON-like structure
-                        start_idx = response.find('{')
-                        end_idx = response.rfind('}') + 1
-                        if start_idx >= 0 and end_idx > start_idx:
-                            json_str = response[start_idx:end_idx]
-                            print(f"Attempting to parse JSON from positions {start_idx} to {end_idx}")
-                            analysis = json.loads(json_str)
-                            print("Successfully parsed JSON from extracted positions")
-                        else:
-                            raise
+                raise ValueError("No JSON found in response")
 
-            # Ensure we have all the required fields with default values
-            analysis = {
-                "main_topics": analysis.get("main_topics", []),
-                "key_points": analysis.get("key_points", []),
-                "technologies_mentioned": analysis.get("technologies_mentioned", []),
-                "summary": analysis.get("summary", "No summary available"),
-                "relevant_for": analysis.get("relevant_for", ["General audience"])
-            }
-
-            # Format the results with a consistent structure
+            # Create report with consistent structure
             report = {
                 "video_id": video_id,
+                "video_title": video["title"],
                 "title": video["title"],
-                "video_title": video["title"],  # Add video_title as an alias for title
                 "analysis_date": datetime.now().isoformat(),
-                "analysis_timestamp": datetime.now().isoformat(),  # Add alias for consistency
                 "analysis": {
                     "main_topics": analysis.get("main_topics", []),
                     "key_points": analysis.get("key_points", []),
-                    "technical_details": analysis.get("technologies_mentioned", []),
+                    "technical_details": analysis.get("technical_details", []),
                     "technologies_mentioned": analysis.get("technologies_mentioned", []),
-                    "overall_summary": analysis.get("summary", ""),
-                    "summary": analysis.get("summary", ""),
-                    "target_audience": analysis.get("relevant_for", []),
-                    "relevant_for": analysis.get("relevant_for", []),
+                    "overall_summary": analysis.get("overall_summary", ""),
+                    "summary": analysis.get("overall_summary", ""),
                     "important_facts": analysis.get("important_facts", []),
                     "examples_and_stories": analysis.get("examples_and_stories", []),
-                    "examples_and_segments": analysis.get("examples_and_stories", []),  # Alias for consistency
+                    "examples_and_segments": analysis.get("examples_and_stories", []),
                     "important_segments": analysis.get("important_segments", []),
                     "tone_and_style": analysis.get("tone_and_style", ""),
-                    "content_quality": analysis.get("content_quality", "")
-                },
-                # Also keep top-level fields for backward compatibility
-                "main_topics": analysis.get("main_topics", []),
-                "key_points": analysis.get("key_points", []),
-                "technologies_mentioned": analysis.get("technologies_mentioned", []),
-                "summary": analysis.get("summary", ""),
-                "relevant_for": analysis.get("relevant_for", []),
-                "important_facts": analysis.get("important_facts", []),
-                "examples_and_segments": analysis.get("examples_and_stories", [])
+                    "content_quality": analysis.get("content_quality", ""),
+                    "target_audience": analysis.get("target_audience", [])
+                }
             }
 
             # Save the report to a file
@@ -308,56 +279,10 @@ IMPORTANT GUIDELINES:
 
             return report
 
-        except json.JSONDecodeError as json_err:
-            print(f"JSON parsing error for video {video['title']}: {json_err}")
-            print(f"Raw response excerpt: {response[:200]}...")
-
-            # Save the raw response for debugging
-            error_file = os.path.join(self.data_dir, f"{video_id}_error.txt")
-            with open(error_file, "w", encoding="utf-8") as f:
-                f.write(response)
-            print(f"Full problematic response saved to {error_file}")
-
-            # Create a minimal report with error information
-            minimal_report = {
-                "video_id": video_id,
-                "title": video["title"],
-                "analysis_date": datetime.now().isoformat(),
-                "main_topics": ["Analysis failed"],
-                "key_points": ["JSON parsing error"],
-                "technologies_mentioned": [],
-                "summary": f"Failed to analyze video due to JSON parsing error: {json_err}",
-                "relevant_for": ["N/A"]
-            }
-
-            # Cache the minimal report to avoid repeated failing calls
-            self.analyzed_videos_cache[video_id] = minimal_report
-            return minimal_report
-
         except Exception as e:
             print(f"Error analyzing transcript for video {video['title']}: {e}")
-
-            # Save the raw response for debugging
-            error_file = os.path.join(self.data_dir, f"{video_id}_error.txt")
-            with open(error_file, "w", encoding="utf-8") as f:
-                f.write(response if response else "No response received")
-            print(f"Error details saved to {error_file}")
-
-            # Create a minimal report with error information
-            minimal_report = {
-                "video_id": video_id,
-                "title": video["title"],
-                "analysis_date": datetime.now().isoformat(),
-                "main_topics": ["Analysis failed"],
-                "key_points": [f"Error: {str(e)}"],
-                "technologies_mentioned": [],
-                "summary": f"Failed to analyze video due to error: {str(e)}",
-                "relevant_for": ["N/A"]
-            }
-
-            # Cache the minimal report to avoid repeated failing calls
-            self.analyzed_videos_cache[video_id] = minimal_report
-            return minimal_report
+            print(f"Raw response excerpt: {response[:200]}...")
+            return None
 
     def generate_report(self, video_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """

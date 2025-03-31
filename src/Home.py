@@ -7,7 +7,7 @@ import streamlit as st
 import os
 import base64
 
-from src.orchestrator import WorkflowOrchestrator
+from orchestrator import WorkflowOrchestrator
 from utils.config import config
 
 # Set page configuration

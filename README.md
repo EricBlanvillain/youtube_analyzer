@@ -32,7 +32,7 @@ pip install -r requirements.txt
 
 There are two ways to run the application:
 
-1. Using the start script:
+1. Using the start script (recommended):
 ```bash
 ./start.sh
 ```
@@ -55,15 +55,23 @@ youtube_analyzer/
 │   │   ├── 3_Digest.py
 │   │   └── 4_About.py
 │   ├── Home.py         # Main page
+│   ├── app.py          # Core application logic
+│   ├── main.py         # Entry point
 │   ├── data_retriever.py
 │   ├── orchestrator.py
 │   ├── qa_agent.py
 │   ├── report_generator.py
 │   ├── vector_store.py
 │   └── run_multipage_app.py  # Main application file
-├── tests/              # Test files
-├── requirements.txt    # Project dependencies
-├── start.sh           # Startup script
+├── data/               # Data storage
+├── tests/             # Test files
+├── utils/             # Utility functions
+├── archives/          # Archived files
+├── docs/              # Documentation
+├── requirements.txt   # Project dependencies
+├── start.sh          # Startup script
+├── .env              # Environment variables (not in git)
+├── .env.example      # Example environment variables
 └── README.md
 ```
 

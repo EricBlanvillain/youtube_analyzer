@@ -385,10 +385,10 @@ def display_analyze_page():
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
-            min_duration = st.slider("Min Duration (minutes)", 0, 60, 0)
+            min_duration = st.slider("Min Duration (minutes)", 0, 360, 0)
 
         with col2:
-            max_duration = st.slider("Max Duration (minutes)", 0, 60, 60)
+            max_duration = st.slider("Max Duration (minutes)", 0, 360, 360)
 
         with col3:
             sort_by = st.selectbox("Sort by", ["Most Recent", "Most Viewed", "Longest", "Shortest"])
@@ -613,7 +613,7 @@ def display_analyze_page():
                         points = video_report.get('key_points')
                         if not points and 'analysis' in video_report:
                             points = video_report['analysis'].get('key_points')
-                            
+
                         if points:
                             # Check if it's a list or string
                             if isinstance(points, list):
@@ -629,7 +629,7 @@ def display_analyze_page():
                         topics = video_report.get('topics') or video_report.get('main_topics')
                         if not topics and 'analysis' in video_report:
                             topics = video_report['analysis'].get('topics') or video_report['analysis'].get('main_topics')
-                            
+
                         if topics:
                             # Check if it's a list or string
                             if isinstance(topics, list):
@@ -645,7 +645,7 @@ def display_analyze_page():
                         facts = video_report.get('important_facts')
                         if not facts and 'analysis' in video_report:
                             facts = video_report['analysis'].get('important_facts')
-                            
+
                         if facts:
                             # Check if it's a list or string
                             if isinstance(facts, list):
@@ -661,7 +661,7 @@ def display_analyze_page():
                         details = video_report.get('technical_details') or video_report.get('technologies_mentioned')
                         if not details and 'analysis' in video_report:
                             details = video_report['analysis'].get('technical_details') or video_report['analysis'].get('technologies_mentioned')
-                            
+
                         if details:
                             # Check if it's a list or string
                             if isinstance(details, list):
@@ -677,7 +677,7 @@ def display_analyze_page():
                         examples = video_report.get('examples_and_segments') or video_report.get('examples_and_stories')
                         if not examples and 'analysis' in video_report:
                             examples = video_report['analysis'].get('examples_and_segments') or video_report['analysis'].get('examples_and_stories')
-                            
+
                         if examples:
                             # Check if it's a list or string
                             if isinstance(examples, list):

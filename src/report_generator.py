@@ -84,11 +84,14 @@ class ReportGenerator:
         # Store the data retriever for transcript access
         self.data_retriever = data_retriever
 
-        # Initialize vector store
+        # Initialize vector store with error handling
+        self.vector_store = None
         try:
+            from src.vector_store import VectorStore
             self.vector_store = VectorStore()
+            print("Vector store initialized successfully")
         except Exception as e:
-            print(f"Error initializing vector store: {e}")
+            print(f"Warning: Vector store initialization failed (this is okay, will continue without it): {str(e)}")
             self.vector_store = None
 
     def get_transcript(self, video_id: str) -> Optional[str]:
@@ -442,18 +445,21 @@ IMPORTANT GUIDELINES:
 
     def _index_report_in_vector_store(self, report: Dict[str, Any]) -> None:
         """
-        Index a report in the vector store.
+        Index a report in the vector store if available.
 
         Args:
             report: Report data dictionary.
         """
+        if not self.vector_store:
+            return  # Skip if vector store is not available
+
         try:
             print(f"Indexing report for video {report['video_id']} in vector store...")
 
             # Ensure the report has the required fields in the correct structure
             formatted_report = {
                 "video_id": report["video_id"],
-                "video_title": report.get("video_title", report.get("title", "Unknown")),  # Handle both field names
+                "video_title": report.get("video_title", report.get("title", "Unknown")),
                 "channel_title": report.get("channel_title", "Unknown"),
                 "analysis_timestamp": report.get("analysis_timestamp", datetime.now().isoformat()),
                 "main_topics": report.get("main_topics", []) if "main_topics" in report else report.get("analysis", {}).get("main_topics", []),
@@ -466,15 +472,17 @@ IMPORTANT GUIDELINES:
             self.vector_store.index_report(formatted_report)
             print("Report indexed successfully.")
         except Exception as e:
-            print(f"Error indexing report in vector store: {e}")
-            raise  # Re-raise the exception to help with debugging
+            print(f"Warning: Error indexing report in vector store (continuing without indexing): {e}")
 
     def _index_transcript_in_vector_store(self, video_id: str, video_title: str, transcript_text: str) -> None:
-        """Index transcript in vector store for future queries."""
+        """Index transcript in vector store for future queries if available."""
+        if not self.vector_store:
+            return  # Skip if vector store is not available
+
         try:
             self.vector_store.index_transcript(video_id, video_title, transcript_text)
         except Exception as e:
-            print(f"Error indexing transcript in vector store: {e}")
+            print(f"Warning: Error indexing transcript in vector store (continuing without indexing): {e}")
 
     def generate_digest(self, videos: List[Dict[str, Any]], title: str = None) -> Optional[Dict[str, Any]]:
         """

@@ -17,7 +17,7 @@ fi
 
 # Run the application
 echo "Running Streamlit multipage app with: src/Home.py"
-python -m streamlit run src/Home.py
+python -m streamlit run src/Home.py --browser.gatherUsageStats=false
 
 # Keep the terminal window open in case of errors
 read -p "Press Enter to exit..."

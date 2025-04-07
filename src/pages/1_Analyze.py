@@ -176,8 +176,18 @@ def analyze_selected_videos():
     # Update reports list
     st.session_state.reports = st.session_state.orchestrator.qa_agent.list_available_reports()
 
-# Main function for the Analyze page
+# --- Callback Functions ---
+def clear_selection_callback():
+    """Callback to clear the video selection."""
+    st.session_state.video_selection = []
+    # We might need to rerun if the UI depends immediately on the cleared state,
+    # but often Streamlit handles this automatically with callbacks.
+    # If clearing doesn't update the UI as expected, uncomment the rerun.
+    # st.rerun()
+
+# --- Main Display Function ---
 def display_analyze_page():
+    """Display the video analysis page."""
     st.markdown('<div class="main-title">YouTube Channel Analyzer</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitle">Search for YouTube channels, browse videos, and analyze content</div>', unsafe_allow_html=True)
 
@@ -481,7 +491,11 @@ def display_analyze_page():
         # Clear selection button
         st.markdown('<div class="analysis-button">', unsafe_allow_html=True)
         if num_selected > 0:
-            clear_button = st.button("Clear Selection", key="clear_button")
+            clear_button = st.button(
+                "Clear Selection",
+                key="clear_button",
+                on_click=clear_selection_callback  # Use the callback here
+            )
         else:
             # Empty placeholder to maintain layout
             st.write("")
@@ -496,10 +510,6 @@ def display_analyze_page():
         # Handle button actions
         if analyze_button:
             analyze_selected_videos()
-
-        if 'clear_button' in locals() and clear_button:
-            st.session_state.video_selection = []
-            st.rerun()
 
         if view_details:
             # Only show details if exactly one video is selected

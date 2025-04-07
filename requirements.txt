@@ -16,3 +16,6 @@ langchain
 langchain-text-splitters==0.0.1
 langchain-community
 diskcache==5.6.3
+accelerate==0.32.1
+transformers==4.43.3
+torch==2.3.1

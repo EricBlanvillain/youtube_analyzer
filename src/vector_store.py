@@ -60,7 +60,7 @@ class VectorStore:
         # Use Sentence Transformers for embeddings
         self.embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
             model_name="all-MiniLM-L6-v2",
-            device="cpu"
+            device="cpu" # Explicitly set device
         )
 
         # Initialize or get collections

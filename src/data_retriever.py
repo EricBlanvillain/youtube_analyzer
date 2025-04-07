@@ -246,19 +246,41 @@ class DataRetriever:
         try:
             from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 
-            # Try to get the transcript
-            transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-            if not transcript_list:
-                print(f"No transcript found for video {video_id}")
-                return None
+            # List available transcripts first
+            transcript_list_details = YouTubeTranscriptApi.list_transcripts(video_id)
+
+            transcript = None
+            languages_to_try = ['en', 'fr']
+            found_lang = None
+
+            for lang in languages_to_try:
+                try:
+                    # Try fetching the transcript for the current language
+                    # find_transcript will check both manual and generated
+                    transcript = transcript_list_details.find_transcript([lang])
+                    transcript_list = transcript.fetch()
+                    found_lang = lang
+                    print(f"Found transcript in language: {found_lang} for video {video_id}")
+                    break # Stop trying once a transcript is found
+                except NoTranscriptFound:
+                    continue # Try the next language in the list
+
+            if not transcript or not transcript_list:
+                 print(f"No transcript found for video {video_id} in any of the requested languages: {languages_to_try}")
+                 return None
 
             # Combine all transcript entries into a single text
             transcript_text = " ".join([entry["text"] for entry in transcript_list])
             return transcript_text
 
-        except (TranscriptsDisabled, NoTranscriptFound) as e:
-            print(f"Transcript not available for video {video_id}: {e}")
+        except TranscriptsDisabled as e:
+            print(f"Transcripts are disabled for video {video_id}: {e}")
             return None
+        # NoTranscriptFound should be handled by the loop now,
+        # but we keep it here for safety in case list_transcripts fails in a specific way
+        except NoTranscriptFound as e:
+             print(f"Could not find any transcripts for video {video_id} using list_transcripts: {e}")
+             return None
         except Exception as e:
             print(f"Error retrieving transcript for video {video_id}: {e}")
             return None
